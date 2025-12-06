@@ -176,5 +176,5 @@ test "part2" {
 
     const result = try part2(ctx);
     std.debug.print("Day 06 Part 2 Result: {}\n", .{result});
-    try std.testing.expectEqual(9206, result);
+    try std.testing.expectEqual(10142723156431, result);
 }
