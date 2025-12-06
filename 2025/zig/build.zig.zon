@@ -33,8 +33,8 @@
     // internet connectivity.
     .dependencies = .{
         .regex = .{
-            .url = "git+https://github.com/zig-utils/zig-regex#d75526a959a3be854c043a92d123de3adaac3147",
-            .hash = "regex-0.1.0-btRPGTu4BgBtkrBfHIWJiAcSjQ5KAHksgs448XGtzBJb",
+            .url = "git+https://github.com/tiehuis/zig-regex#ee759955e59ae292f4074d62308f953feeecac61",
+            .hash = "regex-0.1.3-axC352raAQCBo-WcgB_nFMFmO2d3QLBLpE8-ebizdeX_",
         },
     },
     .paths = .{
