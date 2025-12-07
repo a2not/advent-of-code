@@ -33,17 +33,11 @@
   '';
 
   # https://devenv.sh/tasks/
-  tasks = {
-    "run:2025" = {
-      exec = ''
-        cd 2025/zig/
-        zig build test
-      '';
-    };
-  };
 
   # https://devenv.sh/tests/
   enterTest = ''
+    cd 2025/zig/
+    zig build test
   '';
 
   # https://devenv.sh/git-hooks/
