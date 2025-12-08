@@ -97,6 +97,39 @@ pub fn part1(ctx: Context, circuitsToConnect: usize) !u64 {
     return sizes.remove() * sizes.remove() * sizes.remove();
 }
 
+pub fn part2(ctx: Context) !i64 {
+    const box = ctx.box;
+
+    var pq = std.PriorityQueue(Edge, void, compareEdges).init(ctx.allocator, {});
+    defer pq.deinit();
+
+    for (0..box.len) |i| {
+        for ((i + 1)..box.len) |j| {
+            const posA = box[i];
+            const posB = box[j];
+            const dist = std.math.pow(i64, posA.x - posB.x, 2) + std.math.pow(i64, posA.y - posB.y, 2) + std.math.pow(i64, posA.z - posB.z, 2);
+            try pq.add(.{ .score = dist, .i = i, .j = j });
+        }
+    }
+
+    var uf = try UnionFind.init(ctx.allocator, box.len);
+    defer uf.deinit(ctx.allocator);
+
+    var result: i64 = 0;
+    while (pq.removeOrNull()) |e| {
+        const i = e.i;
+        const j = e.j;
+
+        const sameSet = uf.same_set(i, j);
+        if (!sameSet) {
+            result = box[i].x * box[j].x;
+        }
+        uf.unite(i, j);
+    }
+
+    return result;
+}
+
 const example =
     \\162,817,812
     \\57,618,57
@@ -144,26 +177,26 @@ test "part1" {
     try std.testing.expectEqual(131580, result);
 }
 
-// test "part2 example" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, example);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 08 Part 2 Example Result: {}\n", .{result});
-//     try std.testing.expectEqual(40, result);
-// }
-//
-// test "part2" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, input);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 08 Part 2 Result: {}\n", .{result});
-//     try std.testing.expectEqual(53916299384254, result);
-// }
+test "part2 example" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, example);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 08 Part 2 Example Result: {}\n", .{result});
+    try std.testing.expectEqual(25272, result);
+}
+
+test "part2" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, input);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 08 Part 2 Result: {}\n", .{result});
+    try std.testing.expectEqual(6844224, result);
+}
