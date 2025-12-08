@@ -41,3 +41,61 @@ pub const Regex = struct {
         return posix_regex.regexec(self.reg, text, 0, null, 0) == 0;
     }
 };
+
+pub const UnionFind = struct {
+    const Self = @This();
+
+    parent: []usize,
+    size: []u64,
+
+    pub fn init(allocator: std.mem.Allocator, length: usize) !Self {
+        var parentAL = try std.ArrayList(usize).initCapacity(allocator, length);
+        var sizeAL = try std.ArrayList(u64).initCapacity(allocator, length);
+        for (0..length) |i| {
+            try parentAL.append(allocator, i);
+            try sizeAL.append(allocator, 1);
+        }
+        return Self{
+            .parent = try parentAL.toOwnedSlice(allocator),
+            .size = try sizeAL.toOwnedSlice(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+        allocator.free(self.parent);
+        allocator.free(self.size);
+        self.* = undefined;
+    }
+
+    pub fn find(self: *Self, i: usize) usize {
+        if (self.parent[i] == i) {
+            return i;
+        }
+        self.parent[i] = self.find(self.parent[i]); // Path compression
+        return self.parent[i];
+    }
+
+    pub fn unite(self: *Self, i: usize, j: usize) void {
+        const root_i = self.find(i);
+        const root_j = self.find(j);
+
+        if (root_i != root_j) {
+            // Union by size: attach the smaller tree under the root of the larger tree
+            if (self.size[root_i] < self.size[root_j]) {
+                self.parent[root_i] = root_j;
+                self.size[root_j] += self.size[root_i];
+            } else {
+                self.parent[root_j] = root_i;
+                self.size[root_i] += self.size[root_j];
+            }
+        }
+    }
+
+    pub fn same_set(self: *Self, i: usize, j: usize) bool {
+        return self.find(i) == self.find(j);
+    }
+
+    pub fn get_size(self: *Self, i: usize) u64 {
+        return self.size[self.find(i)];
+    }
+};
