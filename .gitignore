@@ -2,6 +2,10 @@
 zig-out/
 *.o
 
+# Cargo
+target/
+Cargo.lock
+
 # Devenv
 .devenv*
 devenv.local.nix
