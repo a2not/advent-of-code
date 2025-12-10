@@ -8,9 +8,15 @@ const Light = struct {
     max_bit: u64,
 };
 
+const Joltage = struct {
+    values: []u64,
+    score: u64,
+};
+
 const Line = struct {
     light: Light,
-    buttons: [][]u6,
+    buttons: [][]u6, // u6 is required to bit shift operation because u6 is enough to represent u64
+    joltage: Joltage,
 };
 
 const Context = struct {
@@ -50,6 +56,22 @@ fn parseButton(allocator: Allocator, inputStr: []const u8) ![]u6 {
     return try buttonAL.toOwnedSlice(allocator);
 }
 
+fn parseJoltage(allocator: Allocator, inputStr: []const u8) !Joltage {
+    var valuesAL = try std.ArrayList(u64).initCapacity(allocator, 100);
+    defer valuesAL.deinit(allocator);
+
+    // mind the surrounding {}
+    var it = std.mem.tokenizeScalar(u8, inputStr[1..(inputStr.len - 1)], ',');
+    while (it.next()) |v| {
+        const value = try std.fmt.parseInt(u64, v, 10);
+        try valuesAL.append(allocator, value);
+    }
+    return Joltage{
+        .values = try valuesAL.toOwnedSlice(allocator),
+        .score = 0,
+    };
+}
+
 fn parse(allocator: Allocator, inputStr: []const u8) !Context {
     var linesAL = try std.ArrayList(Line).initCapacity(allocator, 10000);
     defer linesAL.deinit(allocator);
@@ -79,9 +101,12 @@ fn parse(allocator: Allocator, inputStr: []const u8) !Context {
             try buttonsAL.append(allocator, button);
         }
 
+        const joltage = try parseJoltage(allocator, inputs[inputs.len - 1]);
+
         try linesAL.append(allocator, .{
             .light = light,
             .buttons = try buttonsAL.toOwnedSlice(allocator),
+            .joltage = joltage,
         });
     }
 
@@ -141,8 +166,96 @@ pub fn part1(ctx: Context) !u64 {
     return result;
 }
 
-// pub fn part2(ctx: Context) !i64 {
-// }
+fn valuesToString(allocator: Allocator, values: []u64) ![]u8 {
+    var valueStrsAL = try std.ArrayList([]u8).initCapacity(allocator, values.len);
+    defer valueStrsAL.deinit(allocator);
+
+    for (values) |v| {
+        const s = try std.fmt.allocPrint(allocator, "{}", .{v});
+        try valueStrsAL.append(allocator, s);
+    }
+
+    return try std.mem.join(allocator, ",", valueStrsAL.items);
+}
+
+pub fn part2(ctx: Context) !u64 {
+    var result: u64 = 0;
+
+    for (0..ctx.lines.len) |i| {
+        std.debug.print("Processing line {}/{}\n", .{ i + 1, ctx.lines.len });
+        const line = ctx.lines[i];
+
+        // cached BFS
+        var cache = std.StringHashMap(u64).init(ctx.allocator);
+        defer cache.deinit();
+
+        const initKey = try valuesToString(ctx.allocator, line.joltage.values);
+        try cache.put(initKey, 0);
+
+        var q = try std.ArrayList(Joltage).initCapacity(ctx.allocator, 100);
+        defer q.deinit(ctx.allocator);
+        try q.append(ctx.allocator, line.joltage);
+
+        var ptr: usize = 0;
+
+        while (ptr < q.items.len) : (ptr += 1) {
+            const state = q.items[ptr];
+
+            var reached = true;
+            for (state.values) |v| {
+                if (v != 0) reached = false;
+            }
+            if (reached) {
+                // found one of the shortest way
+                result += state.score;
+                break;
+            }
+
+            var reached_negative = false;
+            for (line.buttons) |b| {
+                var valuesAL = try std.ArrayList(u64).initCapacity(ctx.allocator, 1000);
+                defer valuesAL.deinit(ctx.allocator);
+
+                for (state.values) |v| {
+                    try valuesAL.append(ctx.allocator, v);
+                }
+
+                var next_state = Joltage{
+                    .values = try valuesAL.toOwnedSlice(ctx.allocator),
+                    .score = state.score + 1,
+                };
+
+                for (b) |idx| {
+                    const id = idx;
+                    if (next_state.values[id] == 0) {
+                        reached_negative = true;
+                        break;
+                    }
+                    next_state.values[id] -= 1;
+                }
+                if (reached_negative) {
+                    continue;
+                }
+
+                const key = try valuesToString(ctx.allocator, next_state.values);
+                if (cache.get(key)) |existing_score| {
+                    if (next_state.score >= existing_score) {
+                        continue;
+                    }
+                    try cache.put(key, next_state.score);
+                } else {
+                    // new state
+                    try cache.put(key, next_state.score);
+                }
+
+                try q.append(ctx.allocator, next_state);
+                std.debug.print("queue len {}\n", .{q.items.len});
+            }
+        }
+    }
+
+    return result;
+}
 
 const example =
     \\[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
@@ -174,26 +287,26 @@ test "part1" {
     try std.testing.expectEqual(475, result);
 }
 
-// test "part2 example" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, example);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 10 Part 2 Example Result: {}\n", .{result});
-//     try std.testing.expectEqual(24, result);
-// }
-//
-// test "part2" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, input);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 10 Part 2 Result: {}\n", .{result});
-//     try std.testing.expectEqual(6844224, result);
-// }
+test "part2 example" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, example);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 10 Part 2 Example Result: {}\n", .{result});
+    try std.testing.expectEqual(33, result);
+}
+
+test "part2" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, input);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 10 Part 2 Result: {}\n", .{result});
+    try std.testing.expectEqual(6844224, result);
+}
