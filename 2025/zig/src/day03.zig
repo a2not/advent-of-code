@@ -57,6 +57,7 @@ pub fn part2(ctx: Context) !i64 {
     for (ctx.banks) |b| {
         const rows = b.len + 1;
         const cols = 12 + 1;
+        // 2d array init
         var dpArrayList = try std.ArrayList([cols]i64).initCapacity(ctx.allocator, rows);
         for (0..rows) |_| {
             try dpArrayList.append(ctx.allocator, .{0} ** cols);
