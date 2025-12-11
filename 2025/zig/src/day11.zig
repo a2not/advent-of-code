@@ -3,9 +3,10 @@ const Allocator = std.mem.Allocator;
 
 const input = @embedFile("day11_input.txt");
 
+const Adj = std.AutoHashMap(u64, std.ArrayList(u64));
 const Context = struct {
     allocator: Allocator,
-    adj: std.AutoHashMap(u64, std.ArrayList(u64)),
+    adj: Adj,
 };
 
 fn deviceNameAsU64(name: []const u8) u64 {
@@ -18,7 +19,7 @@ fn deviceNameAsU64(name: []const u8) u64 {
 }
 
 fn parse(allocator: Allocator, inputStr: []const u8) !Context {
-    var adj = std.AutoHashMap(u64, std.ArrayList(u64)).init(allocator);
+    var adj = Adj.init(allocator);
 
     var it = std.mem.tokenizeScalar(u8, inputStr, '\n');
     while (it.next()) |line| {
@@ -95,10 +96,56 @@ pub fn part1(ctx: Context) !u64 {
     return result;
 }
 
-// pub fn part2(ctx: Context) u64 {
-// }
+const Cache = std.AutoHashMap(u64, u64);
 
-const example =
+fn cacheKey(device: u64, passedFFT: bool, passedDAC: bool) u64 {
+    var ck = device;
+    ck <<= 1;
+    ck |= @intFromBool(passedFFT);
+    ck <<= 1;
+    ck |= @intFromBool(passedDAC);
+    return ck;
+}
+
+pub fn solvePart2From(allocator: Allocator, adj: Adj, cache: *Cache, device: u64, passedFFT: bool, passedDAC: bool) !u64 {
+    if (device == deviceNameAsU64("out")) {
+        return if (passedFFT and passedDAC) 1 else 0;
+    }
+
+    const ck = cacheKey(device, passedFFT, passedDAC);
+
+    if (cache.get(ck)) |res| return res;
+
+    var res: usize = 0;
+
+    const to = adj.get(device) orelse return 0;
+    for (to.items) |next_device| {
+        const dac = passedDAC or (next_device == deviceNameAsU64("dac"));
+        const fft = passedFFT or (next_device == deviceNameAsU64("fft"));
+        std.debug.print("At device: {}, next_device: {}, passedFFT: {}, passedDAC: {}\n", .{ device, next_device, passedFFT, passedDAC });
+
+        res += try solvePart2From(allocator, adj, cache, next_device, fft, dac);
+    }
+
+    cache.putAssumeCapacityNoClobber(ck, res);
+
+    std.debug.print("Device: {}, passedFFT: {}, passedDAC: {} => res: {}\n", .{ device, passedFFT, passedDAC, res });
+    return res;
+}
+
+pub fn part2(ctx: Context) !u64 {
+    // cached DFS
+    var adj = ctx.adj;
+    defer adj.deinit();
+
+    var cache: Cache = .init(ctx.allocator);
+    defer cache.deinit();
+    try cache.ensureTotalCapacity(std.math.pow(u32, 2, 13));
+
+    return solvePart2From(ctx.allocator, adj, &cache, deviceNameAsU64("svr"), false, false);
+}
+
+const example1 =
     \\aaa: you hhh
     \\you: bbb ccc
     \\bbb: ddd eee
@@ -116,7 +163,7 @@ test "part1 example" {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const ctx = try parse(allocator, example);
+    const ctx = try parse(allocator, example1);
 
     const result = try part1(ctx);
     std.debug.print("Day 11 Part 1 Example Result: {}\n", .{result});
@@ -135,26 +182,42 @@ test "part1" {
     try std.testing.expectEqual(758, result);
 }
 
-// test "part2 example" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, example);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 11 Part 2 Example Result: {}\n", .{result});
-//     try std.testing.expectEqual(24, result);
-// }
-//
-// test "part2" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, input);
-//
-//     const result = try part2(ctx);
-//     std.debug.print("Day 11 Part 2 Result: {}\n", .{result});
-//     try std.testing.expectEqual(6844224, result);
-// }
+const example2 =
+    \\svr: aaa bbb
+    \\aaa: fft
+    \\fft: ccc
+    \\bbb: tty
+    \\tty: ccc
+    \\ccc: ddd eee
+    \\ddd: hub
+    \\hub: fff
+    \\eee: dac
+    \\dac: fff
+    \\fff: ggg hhh
+    \\ggg: out
+    \\hhh: out
+;
+
+test "part2 example" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, example2);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 11 Part 2 Example Result: {}\n", .{result});
+    try std.testing.expectEqual(2, result);
+}
+
+test "part2" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, input);
+
+    const result = try part2(ctx);
+    std.debug.print("Day 11 Part 2 Result: {}\n", .{result});
+    try std.testing.expectEqual(167507919734400, result);
+}
