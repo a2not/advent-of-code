@@ -10,7 +10,6 @@ const Light = struct {
 
 const Joltage = struct {
     values: []u64,
-    score: u64,
 };
 
 const Line = struct {
@@ -68,7 +67,6 @@ fn parseJoltage(allocator: Allocator, inputStr: []const u8) !Joltage {
     }
     return Joltage{
         .values = try valuesAL.toOwnedSlice(allocator),
-        .score = 0,
     };
 }
 
@@ -166,91 +164,67 @@ pub fn part1(ctx: Context) !u64 {
     return result;
 }
 
-fn valuesToString(allocator: Allocator, values: []u64) ![]u8 {
-    var valueStrsAL = try std.ArrayList([]u8).initCapacity(allocator, values.len);
-    defer valueStrsAL.deinit(allocator);
+const z3 = @import("z3");
 
-    for (values) |v| {
-        const s = try std.fmt.allocPrint(allocator, "{}", .{v});
-        try valueStrsAL.append(allocator, s);
-    }
-
-    return try std.mem.join(allocator, ",", valueStrsAL.items);
-}
+const AstList = std.ArrayList(z3.Ast);
+const AstArgsList = std.ArrayList(AstList);
+const NameList = std.ArrayList([]const u8);
 
 pub fn part2(ctx: Context) !u64 {
+    const alloc = ctx.allocator;
     var result: u64 = 0;
 
-    for (0..ctx.lines.len) |i| {
-        std.debug.print("Processing line {}/{}\n", .{ i + 1, ctx.lines.len });
-        const line = ctx.lines[i];
+    for (ctx.lines) |line| {
+        const jolt = line.joltage;
+        const btns = line.buttons;
 
-        // cached BFS
-        var cache = std.StringHashMap(u64).init(ctx.allocator);
-        defer cache.deinit();
+        // Z3
+        var opt = z3.OptContext.init();
+        defer opt.deinit();
 
-        const initKey = try valuesToString(ctx.allocator, line.joltage.values);
-        try cache.put(initKey, 0);
+        var jolt_targets = try AstList.initCapacity(alloc, jolt.values.len);
+        var jolt_sum_args = try AstArgsList.initCapacity(alloc, jolt.values.len);
+        for (jolt.values) |v| {
+            try jolt_targets.append(alloc, opt.intVal(@intCast(v)));
+            try jolt_sum_args.append(alloc, try AstList.initCapacity(alloc, 0));
+        }
 
-        var q = try std.ArrayList(Joltage).initCapacity(ctx.allocator, 100);
-        defer q.deinit(ctx.allocator);
-        try q.append(ctx.allocator, line.joltage);
+        var press_vars = try AstList.initCapacity(alloc, btns.len);
 
-        var ptr: usize = 0;
+        for (btns, 0..) |btn, i| {
+            var buf: [32]u8 = undefined;
+            const btn_name = try std.fmt.bufPrintZ(&buf, "btn-{d}", .{i});
+            const presses = opt.intVar(btn_name.ptr);
+            try press_vars.append(alloc, presses);
 
-        while (ptr < q.items.len) : (ptr += 1) {
-            const state = q.items[ptr];
-
-            var reached = true;
-            for (state.values) |v| {
-                if (v != 0) reached = false;
-            }
-            if (reached) {
-                // found one of the shortest way
-                result += state.score;
-                break;
+            // joltage increases by num presses for each of a btn's effects
+            for (btn) |idx| {
+                try jolt_sum_args.items[idx].append(alloc, presses);
             }
 
-            var reached_negative = false;
-            for (line.buttons) |b| {
-                var valuesAL = try std.ArrayList(u64).initCapacity(ctx.allocator, 1000);
-                defer valuesAL.deinit(ctx.allocator);
+            // presses must be non-negative
+            const zero = opt.intVal(0);
+            opt.assert_(opt.ge(presses, zero));
+        }
 
-                for (state.values) |v| {
-                    try valuesAL.append(ctx.allocator, v);
-                }
+        // constrain joltage sum to be equal to machine target
+        for (0..jolt.values.len) |i| {
+            const jolt_sum = opt.add(jolt_sum_args.items[i].items);
+            const jolt_target = jolt_targets.items[i];
+            opt.assert_(opt.eq(jolt_sum, jolt_target));
+        }
 
-                var next_state = Joltage{
-                    .values = try valuesAL.toOwnedSlice(ctx.allocator),
-                    .score = state.score + 1,
-                };
+        // minimize total number of presses
+        const objective = opt.add(press_vars.items);
+        opt.minimize(objective);
 
-                for (b) |idx| {
-                    const id = idx;
-                    if (next_state.values[id] == 0) {
-                        reached_negative = true;
-                        break;
-                    }
-                    next_state.values[id] -= 1;
-                }
-                if (reached_negative) {
-                    continue;
-                }
+        if (opt.check() == z3.L_TRUE) {
+            var model = opt.getModel() orelse unreachable;
+            defer model.deinit();
 
-                const key = try valuesToString(ctx.allocator, next_state.values);
-                if (cache.get(key)) |existing_score| {
-                    if (next_state.score >= existing_score) {
-                        continue;
-                    }
-                    try cache.put(key, next_state.score);
-                } else {
-                    // new state
-                    try cache.put(key, next_state.score);
-                }
-
-                try q.append(ctx.allocator, next_state);
-                std.debug.print("queue len {}\n", .{q.items.len});
-            }
+            const solution = model.eval(objective) orelse unreachable;
+            const res: u64 = @intCast(opt.astToInt(solution));
+            result += res;
         }
     }
 
@@ -308,5 +282,5 @@ test "part2" {
 
     const result = try part2(ctx);
     std.debug.print("Day 10 Part 2 Result: {}\n", .{result});
-    try std.testing.expectEqual(6844224, result);
+    try std.testing.expectEqual(18273, result);
 }

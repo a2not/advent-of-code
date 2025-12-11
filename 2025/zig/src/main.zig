@@ -23,5 +23,7 @@ test {
     // _ = @import("./day05.zig");
     // _ = @import("./day06.zig");
     // _ = @import("./day07.zig");
-    _ = @import("./day08.zig");
+    // _ = @import("./day08.zig");
+    // _ = @import("./day09.zig");
+    _ = @import("./day10.zig");
 }

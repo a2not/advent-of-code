@@ -11,7 +11,7 @@
   # https://devenv.sh/packages/
   packages = with pkgs; [
     git
-    z3
+    z3 # NOTE: for 2025/zig/src/day10.zig
   ];
 
   # https://devenv.sh/languages/
