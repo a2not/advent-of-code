@@ -28,7 +28,7 @@ fn parse(allocator: Allocator, inputStr: []const u8) !Context {
         const from = deviceNameAsU64(p.next() orelse unreachable);
 
         var toAL = try std.ArrayList(u64).initCapacity(allocator, 10);
-        defer toAL.deinit(allocator);
+        // defer toAL.deinit(allocator); // NOTE: let the arena allocator do the job. I know it's better to init arena allocator at the top of parse func but i'm lazy.
         var toIt = std.mem.tokenizeScalar(u8, p.next() orelse unreachable, ' ');
         while (toIt.next()) |name| {
             const to = deviceNameAsU64(name);
@@ -46,43 +46,53 @@ fn parse(allocator: Allocator, inputStr: []const u8) !Context {
 
 const State = struct {
     device: u64,
-    node: std.DoublyLinkedList.Node = .{},
+    order: u64,
 };
 
+fn compareState(_: void, a: State, b: State) std.math.Order {
+    return std.math.order(a.order, b.order);
+}
+
 pub fn part1(ctx: Context) !u64 {
+    var result: u64 = 0;
+
+    // BFS
     var adj = ctx.adj;
     defer adj.deinit();
 
-    var dp = std.AutoHashMap(u64, u64).init(ctx.allocator);
-    defer dp.deinit();
+    // NOTE: PQ as deque since intrusive DoublyLinkedList was hard to juggle with
+    // https://www.openmymind.net/Zigs-New-LinkedList-API/
+    var q = std.PriorityQueue(State, void, compareState).init(ctx.allocator, {});
+    defer q.deinit();
 
-    var q: std.DoublyLinkedList = .{};
-    var initial_state: State = .{
+    var order_counter: u64 = 0;
+    const initial_state: State = .{
         .device = deviceNameAsU64("you"),
+        .order = order_counter,
     };
-    q.append(&initial_state.node);
-    try dp.put(initial_state.device, 1);
+    try q.add(initial_state);
+    order_counter += 1;
 
-    var it = q.first;
-    while (it) |node| : (it = node.next) {
-        const state: *State = @fieldParentPtr("node", node);
-        const device = state.*.device;
-        std.debug.print("Visiting device: {}\n", .{device});
+    var it = q.iterator();
+    while (it.next()) |state| {
+        const device = state.device;
+        if (device == deviceNameAsU64("out")) {
+            result += 1;
+            continue;
+        }
 
-        const to = adj.get(device).?;
+        const to = adj.get(device) orelse continue;
         for (to.items) |next_device| {
-            const current_score = dp.get(next_device) orelse 0;
-            const to_add = dp.get(device) orelse 0;
-            try dp.put(next_device, current_score + to_add);
-
-            var new_state: State = .{
+            const new_state: State = .{
                 .device = next_device,
+                .order = order_counter,
             };
-            q.append(&new_state.node);
+            try q.add(new_state);
+            order_counter += 1;
         }
     }
 
-    return dp.get(deviceNameAsU64("out")).?;
+    return result;
 }
 
 // pub fn part2(ctx: Context) u64 {
@@ -110,21 +120,21 @@ test "part1 example" {
 
     const result = try part1(ctx);
     std.debug.print("Day 11 Part 1 Example Result: {}\n", .{result});
-    try std.testing.expectEqual(50, result);
+    try std.testing.expectEqual(5, result);
 }
 
-// test "part1" {
-//     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-//     defer arena.deinit();
-//     const allocator = arena.allocator();
-//
-//     const ctx = try parse(allocator, input);
-//
-//     const result = try part1(ctx);
-//     std.debug.print("Day 11 Part 1 Result: {}\n", .{result});
-//     try std.testing.expectEqual(4777967538, result);
-// }
-//
+test "part1" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const ctx = try parse(allocator, input);
+
+    const result = try part1(ctx);
+    std.debug.print("Day 11 Part 1 Result: {}\n", .{result});
+    try std.testing.expectEqual(758, result);
+}
+
 // test "part2 example" {
 //     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 //     defer arena.deinit();
