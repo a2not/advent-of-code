@@ -1,6 +1,41 @@
-const INPUT_STR: &str = include_str!("./day14_input.txt");
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[derive(Debug)]
+    #[test]
+    fn day14_parse() {
+        let got = parse(INPUT_EXAMPLE_P1);
+        assert_eq!(
+            got,
+            vec![
+                Instruction::Mask {
+                    ones: 0b1000000,
+                    xs: 0b111111111111111111111111111110111101,
+                },
+                Instruction::Mem {
+                    address: 8,
+                    value: 11,
+                },
+                Instruction::Mem {
+                    address: 7,
+                    value: 101,
+                },
+                Instruction::Mem {
+                    address: 8,
+                    value: 0,
+                },
+            ],
+        );
+    }
+}
+
+pub const INPUT_STR: &str = include_str!("./day14_input.txt");
+pub const INPUT_EXAMPLE_P1: &str = "mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X
+mem[8] = 11
+mem[7] = 101
+mem[8] = 0";
+
+#[derive(PartialEq, Debug)]
 pub enum Instruction {
     Mask { ones: u64, xs: u64 },
     Mem { address: u64, value: u64 },
@@ -41,26 +76,4 @@ pub fn parse(input: &str) -> Vec<Instruction> {
             }
         })
         .collect()
-}
-
-const INPUT_EXAMPLE_P1: &str = "mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X
-mem[8] = 11
-mem[7] = 101
-mem[8] = 0";
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn day14_parse() {
-        use super::*;
-        parse(INPUT_EXAMPLE_P1);
-        assert_eq!(2 + 2, 4);
-    }
-}
-
-fn main() {
-    let res = parse(INPUT_EXAMPLE_P1);
-    println!("Day 14: {:?}", res);
-    let res = parse(INPUT_STR);
-    println!("Day 14: {:?}", res);
 }
