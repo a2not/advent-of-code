@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::day14::*;
 
     #[test]
-    fn day14_parse() {
+    fn parse_example() {
         let got = parse(INPUT_EXAMPLE_P1);
         assert_eq!(
             got,
@@ -27,9 +27,16 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    fn solve_part1_example() {
+        let input = parse(INPUT_EXAMPLE_P1);
+        let got = part1(&input);
+        assert_eq!(got, 165);
+    }
 }
 
-pub const INPUT_STR: &str = include_str!("./day14_input.txt");
+pub const INPUT: &str = include_str!("./day14_input.txt");
 pub const INPUT_EXAMPLE_P1: &str = "mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X
 mem[8] = 11
 mem[7] = 101
@@ -76,4 +83,19 @@ pub fn parse(input: &str) -> Vec<Instruction> {
             }
         })
         .collect()
+}
+
+fn part1(input: &[Instruction]) -> u64 {
+    input.len() as u64
+}
+
+#[allow(unused)]
+fn solve_part1_example() -> u64 {
+    let input = parse(INPUT_EXAMPLE_P1);
+    part1(&input)
+}
+
+pub fn solve_part1() -> u64 {
+    let input = parse(INPUT);
+    part1(&input)
 }
