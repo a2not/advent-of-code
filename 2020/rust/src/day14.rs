@@ -29,10 +29,15 @@ mod tests {
     }
 
     #[test]
-    fn solve_part1_example() {
-        let input = parse(INPUT_EXAMPLE_P1);
-        let got = part1(&input);
+    fn part1_example() {
+        let got = solve_part1_example();
         assert_eq!(got, 165);
+    }
+
+    #[test]
+    fn part1() {
+        let got = solve_part1();
+        assert_eq!(got, 9967721333886);
     }
 }
 
@@ -86,7 +91,29 @@ pub fn parse(input: &str) -> Vec<Instruction> {
 }
 
 fn part1(input: &[Instruction]) -> u64 {
-    input.len() as u64
+    let mut current_mask = None;
+
+    use std::collections::HashMap;
+    let mut memory = HashMap::new();
+
+    input.iter().for_each(|instruction| match instruction {
+        Instruction::Mask { ones, xs } => {
+            current_mask = Some(Instruction::Mask {
+                ones: *ones,
+                xs: *xs,
+            });
+        }
+        Instruction::Mem { address, value } => {
+            if let Some(Instruction::Mask { ones, xs }) = current_mask {
+                let new_value = value & xs | ones;
+                memory.insert(address, new_value);
+            } else {
+                unreachable!();
+            };
+        }
+    });
+
+    memory.iter().fold(0, |acc, (_, v)| acc + *v)
 }
 
 #[allow(unused)]
