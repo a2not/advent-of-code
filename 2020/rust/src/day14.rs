@@ -188,26 +188,22 @@ fn part2(input: &[Instruction]) -> u64 {
     memory.iter().fold(0, |acc, (_, v)| acc + *v)
 }
 
-#[allow(unused)]
 fn solve_part1_example() -> u64 {
     let input = parse(INPUT_EXAMPLE_PART_1);
     part1(&input)
 }
 
-#[allow(unused)]
-pub fn solve_part1() -> u64 {
+fn solve_part1() -> u64 {
     let input = parse(INPUT);
     part1(&input)
 }
 
-#[allow(unused)]
 fn solve_part2_example() -> u64 {
     let input = parse(INPUT_EXAMPLE_PART_2);
     part2(&input)
 }
 
-#[allow(unused)]
-pub fn solve_part2() -> u64 {
+fn solve_part2() -> u64 {
     let input = parse(INPUT);
     part2(&input)
 }
