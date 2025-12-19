@@ -52,16 +52,16 @@ mod tests {
         assert_eq!(got, 25984);
     }
 
-    // #[test]
-    // fn part2_example() {
-    //     let got = solve_part2_example();
-    //     assert_eq!(got, 1);
-    // }
-    //
+    #[test]
+    fn part2_example() {
+        let got = solve_part2_example();
+        assert_eq!(got, 1);
+    }
+
     #[test]
     fn part2() {
         let got = solve_part2();
-        assert_eq!(got, 0);
+        assert_eq!(got, 1265347500049);
     }
 }
 
@@ -195,18 +195,30 @@ fn part2(ctx: Context) -> u64 {
         all_tickets,
     } = ctx;
 
-    // TODO: ignore some tickets that are invalid
+    let valid_tickets = all_tickets
+        .iter()
+        .filter(|ticket| {
+            ticket.iter().all(|v| {
+                fields.iter().any(|field| {
+                    field
+                        .ranges
+                        .iter()
+                        .any(|(low, high)| *low <= *v && *v <= *high)
+                })
+            })
+        })
+        .collect::<Vec<&Vec<u64>>>();
 
     let mut result = 1;
 
     use std::collections::{BinaryHeap, HashMap, HashSet};
     let mut candidates = HashMap::<usize, HashSet<usize>>::new();
 
-    let m = all_tickets.get(0).unwrap().len();
+    let m = valid_tickets.get(0).unwrap().len();
 
     for j in 0..m {
         for (field_index, field) in fields.iter().enumerate() {
-            let possible = all_tickets.iter().all(|ticket| {
+            let possible = valid_tickets.iter().all(|ticket| {
                 let v = ticket.get(j).unwrap();
                 field
                     .ranges
@@ -214,7 +226,6 @@ fn part2(ctx: Context) -> u64 {
                     .any(|(low, high)| *low <= *v && *v <= *high)
             });
             if possible {
-                println!("field {:?} can be column {:?}", field.name, j);
                 candidates.entry(field_index).or_default().insert(j);
             }
         }
@@ -224,9 +235,6 @@ fn part2(ctx: Context) -> u64 {
         .iter()
         .map(|(field_index, positions)| (-(positions.len() as isize), *field_index))
         .collect::<BinaryHeap<(isize, usize)>>();
-
-    println!("candidates: {:?}", candidates);
-    println!("pq: {:?}", pq);
 
     let mut fixed_column = HashSet::<usize>::new();
 
@@ -246,7 +254,6 @@ fn part2(ctx: Context) -> u64 {
         fixed_column.insert(**col);
 
         let field = fields.get(field_index).unwrap();
-        println!("field {:?} is column {:?}", field.name, col);
         if field.name.starts_with("departure") {
             result *= my_ticket.get(**col).unwrap();
         }
